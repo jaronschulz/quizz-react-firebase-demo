@@ -1,18 +1,32 @@
 import React, { Component } from "react";
 import Question from "./Question";
 
-const dummyQuestion = {
-  question: "What's the best programming language?",
-  answerChoices: ["JavaScript", "Rust", "C#", "Go"]
-};
-
 export default class Game extends Component {
+  state = {
+    questions: null,
+    currentQuestion: null
+  };
+
   async componentDidMount() {
-    const url = `https://opentdb.com/api.php?amount=10&category=11&difficulty=easy&type=multiple`;
+    const url = `https://opentdb.com/api.php?amount=10&category=9&difficulty=easy&type=multiple`;
     try {
       const res = await fetch(url);
       const { results } = await res.json();
-      console.log(results);
+
+      const questions = results.map(loadedQuestion => {
+        const formattedQuestion = {
+          question: loadedQuestion.question,
+          answerChoices: [...loadedQuestion.incorrect_answers]
+        };
+        formattedQuestion.answer = Math.floor(Math.random() * 4);
+        formattedQuestion.answerChoices.splice(
+          formattedQuestion.answer,
+          0,
+          loadedQuestion.correct_answer
+        );
+        return formattedQuestion;
+      });
+      this.setState({ questions, currentQuestion: questions[0] });
     } catch (error) {
       console.error(error);
     }
@@ -20,7 +34,9 @@ export default class Game extends Component {
   render() {
     return (
       <>
-        <Question question={dummyQuestion} />
+        {this.state.currentQuestion && (
+          <Question question={this.state.currentQuestion} />
+        )}
       </>
     );
   }
