@@ -1,43 +1,72 @@
-import React, { Component } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Question from "./Question";
+import HUD from "./HUD";
+import SaveScoreForm from "./SaveScoreForm";
+import { loadQuestions } from "../helpers/QuestionsHelper";
 
-export default class Game extends Component {
-  state = {
-    questions: null,
-    currentQuestion: null
+export default function Game({ history }) {
+  const [questions, setQuestions] = useState([]);
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [score, setScore] = useState(0);
+  const [questionNumber, setQuestionNumber] = useState(0);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    loadQuestions().then(setQuestions).catch(console.error);
+  }, []);
+
+  const scoreSaved = () => {
+    history.push("/");
   };
 
-  async componentDidMount() {
-    const url = `https://opentdb.com/api.php?amount=10&category=9&difficulty=easy&type=multiple`;
-    try {
-      const res = await fetch(url);
-      const { results } = await res.json();
+  const changeQuestion = useCallback(
+    (bonus = 0) => {
+      if (questions.length === 0) {
+        setDone(true);
+        return setScore(score + bonus);
+      }
+      const randomQuestionIndex = Math.floor(Math.random() * questions.length);
+      const currentQuestion = questions[randomQuestionIndex];
+      const remainingQuestions = [...questions];
+      remainingQuestions.splice(randomQuestionIndex, 1);
 
-      const questions = results.map(loadedQuestion => {
-        const formattedQuestion = {
-          question: loadedQuestion.question,
-          answerChoices: [...loadedQuestion.incorrect_answers]
-        };
-        formattedQuestion.answer = Math.floor(Math.random() * 4);
-        formattedQuestion.answerChoices.splice(
-          formattedQuestion.answer,
-          0,
-          loadedQuestion.correct_answer
-        );
-        return formattedQuestion;
-      });
-      this.setState({ questions, currentQuestion: questions[0] });
-    } catch (error) {
-      console.error(error);
+      setQuestions(remainingQuestions);
+      setCurrentQuestion(currentQuestion);
+      setLoading(false);
+      setScore(score + bonus);
+      setQuestionNumber(questionNumber + 1);
+    },
+    [
+      score,
+      questions,
+      questionNumber,
+      setQuestions,
+      setLoading,
+      setCurrentQuestion,
+      setQuestionNumber,
+    ]
+  );
+
+  useEffect(() => {
+    if (!currentQuestion && questions.length) {
+      changeQuestion();
     }
-  }
-  render() {
-    return (
-      <>
-        {this.state.currentQuestion && (
-          <Question question={this.state.currentQuestion} />
-        )}
-      </>
-    );
-  }
+  }, [changeQuestion, currentQuestion, questions]);
+
+  return (
+    <>
+      {loading && !done && <div id="loader"></div>}
+      {!done && !loading && currentQuestion && (
+        <>
+          <HUD score={score} questionNumber={questionNumber} />
+          <Question
+            question={currentQuestion}
+            changeQuestion={changeQuestion}
+          />
+        </>
+      )}
+      {done && <SaveScoreForm score={score} scoreSaved={scoreSaved} />}
+    </>
+  );
 }
